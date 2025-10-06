@@ -1,0 +1,13 @@
+---
+globs: scraper/sites/*
+alwaysApply: false
+---
+# Testing using the CLI
+when making changes to any scrapers, be sure to test when you're finished. You should test using the following CLI commands:
+```
+./scripts/cli.sh --url https://example.com --mode site // or --mode character
+```
+where you replace the `https://example.com` with the actual URL you want to test.
+
+## Testing for sites
+IMPORTANT: When testing scraping for sites, it is often expensive to scrape the entire site. That's why the flag for only scraping the first page exists (`first_page_only`). Unless specified, you should always leave this flag to true (True by default).  

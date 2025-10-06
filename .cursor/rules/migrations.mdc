@@ -1,0 +1,8 @@
+---
+globs: supabase/migrations/*
+alwaysApply: false
+---
+When defaulting to uuid, make sure to write it with: `extensions.uuid_generate_v4()`. For instance: ```
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+```
+Make sure that the applicable row-level security (RLS) policies have been created. If the user has not specified what the RLS policy should be, then you should prompt them once the changes you have made are finished. 

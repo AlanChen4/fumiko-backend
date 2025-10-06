@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+After making any changes, run `./scripts/lint.sh` to check for errors.
+Try to only use `try`-`excepts` when it's really necessary. I want you to be extra conservative about using this.

@@ -1,0 +1,1 @@
+ENV=development uv run modal serve main.py
