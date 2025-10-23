@@ -1,7 +1,6 @@
 from typing import cast
 
 from pydantic import HttpUrl
-import modal
 from scraper.app import app
 from scraper.database import create_db_client
 from scraper.crud.character import (
@@ -80,9 +79,9 @@ async def scrape_site(
     )
 
 
-@app.function(
-    schedule=modal.Cron("0 8 * * *", timezone="America/New_York"), timeout=60 * 10
-)
+# @app.function(
+#     schedule=modal.Cron("0 8 * * *", timezone="America/New_York"), timeout=60 * 10
+# )
 async def scrape_sites() -> None:
     """
     Batch scrape all sites in the database.
@@ -154,9 +153,9 @@ async def create_tags_for_character(characters: list[CharacterForTagging]) -> No
             )
 
 
-@app.function(
-    schedule=modal.Cron("0 9 * * *", timezone="America/New_York"), timeout=60 * 30
-)
+# @app.function(
+#     schedule=modal.Cron("0 9 * * *", timezone="America/New_York"), timeout=60 * 30
+# )
 async def tag_characters() -> None:
     """
     Batch create tags for all characters that don't have tags yet.
