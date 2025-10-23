@@ -1,4 +1,5 @@
 from pydantic import BaseModel, HttpUrl, UUID4
+from enum import IntEnum
 from typing import Optional
 
 
@@ -6,6 +7,7 @@ class Site(BaseModel):
     id: UUID4
     name: str
     url: HttpUrl
+    is_enabled: bool
 
 
 class CreatorInput(BaseModel):
@@ -13,10 +15,12 @@ class CreatorInput(BaseModel):
 
     # Their handle/username, without the @
     name: str
+    # Unique identifier within the site (e.g., username, user ID, etc.)
+    site_unique_identifier: str
     image_url: Optional[HttpUrl] = None
     # Sometimes creators will include links to their other sites (e.g. Ko-Fi, Patreon, etc.)
     urls: list[HttpUrl] = []
-    followers: Optional[int] = None
+    follower_count: Optional[int] = None
 
 
 class Creator(CreatorInput):
@@ -32,7 +36,14 @@ class Character(BaseModel):
     url: HttpUrl
     image_url: HttpUrl
 
-    likes: Optional[int] = None
-    tokens: Optional[int] = None
+    chat_count: Optional[int] = None
+    message_count: Optional[int] = None
+    like_count: Optional[int] = None
+    token_count: Optional[int] = None
 
     creator: CreatorInput
+
+
+class TagType(IntEnum):
+    CONTENT = 1
+    PERSONALITY = 2

@@ -11,23 +11,34 @@ ScraperCursorType: TypeAlias = int | None
 
 
 class BaseScraper(ABC):
-    def __init__(self, use_proxy: bool = False, timeout: float = 10.0):
-        if use_proxy:
-            host, port, username, password = (
+    def __init__(
+        self,
+        use_proxy: bool = False,
+        timeout: float = 10.0,
+    ):
+        if not use_proxy:
+            self.http_client = AsyncClient(timeout=timeout)
+        else:
+            host, port = (
                 os.getenv("PROXY_HOST"),
                 os.getenv("PROXY_PORT"),
+            )
+            if not host or not port:
+                raise EnvironmentError(
+                    f"Proxy variables are not set. PROXY_HOST: {host}, PROXY_PORT: {port}"
+                )
+            username, password = (
                 os.getenv("PROXY_USERNAME"),
                 os.getenv("PROXY_PASSWORD"),
             )
-            if not host or not port or not username or not password:
+            if not username or not password:
                 raise EnvironmentError(
-                    f"Proxy credentials are not set. PROXY_HOST: {host}, PROXY_PORT: {port}, PROXY_USERNAME: {username}, PROXY_PASSWORD: {password}"
+                    f"Proxy credentials are not set. PROXY_USERNAME: {username}, PROXY_PASSWORD: {password}"
                 )
             self.http_client = AsyncClient(
-                timeout=timeout, proxy=f"http://{username}:{password}@{host}:{port}"
+                timeout=timeout,
+                proxy=f"http://{username}:{password}@{host}:{port}",
             )
-        else:
-            self.http_client = AsyncClient(timeout=timeout)
 
     async def __aenter__(self):
         return self

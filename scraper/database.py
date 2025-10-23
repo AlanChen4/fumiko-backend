@@ -3,7 +3,7 @@ import os
 from supabase import create_client, Client
 
 
-def get_supabase_client() -> Client:
+def create_db_client() -> Client:
     """Create and return a Supabase client using environment variables."""
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")

@@ -1,48 +1,46 @@
-from urllib.parse import urljoin
-
-from pydantic import HttpUrl
 from typing import cast
 
 from scraper.sites.base import BaseScraper, ScraperCursorType
-from scraper.schemas import Character, CreatorInput
+from scraper.schemas import Character, HttpUrl, CreatorInput
 
 
-class ChubScraper(BaseScraper):
+class JanitorScraper(BaseScraper):
     """
-    https://chub.ai/
+    https://janitor.ai/
     """
 
     async def scrape_character(self, character_url: str) -> Character:
         """
-        TODO: Implement this.
+        Janitor scraper does not implement per-character scraping. Use scrape_site.
         """
         raise ValueError(
-            "Chub.ai scraper does not have a separate character scraping logic. Use scrape_site instead."
+            "Janitor scraper does not have a separate character scraping logic. Use scrape_site instead."
         )
 
     async def scrape_site(
         self, site_url: str, cursor: ScraperCursorType = None
     ) -> tuple[list[HttpUrl] | list[Character], ScraperCursorType]:
-        page_size = 500
         page = cursor or 1
-        api_url = f"https://gateway.chub.ai/search?excludetopics=&search=&page={page}&first={page_size}&namespace=characters&nsfw=true&nsfw_only=false&sort=created_at&include_forks=true&min_tags=0&nsfl=true&count=true"
+        api_url = (
+            f"https://janitorai.com/hampter/characters?page={page}&mode=all&sort=latest"
+        )
 
         response = await self.http_client.get(
             api_url,
             headers={
                 "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
                 "accept-language": "en-US,en;q=0.8",
-                "cache-control": "max-age=0",
-                "priority": "u=0, i",
+                "cache-control": "no-cache",
+                "pragma": "no-cache",
+                "priority": "u=1, i",
+                "referer": "https://janitorai.com/hampter/characters?mode=all&sort=latest",
                 "sec-ch-ua": '"Brave";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
                 "sec-ch-ua-mobile": "?0",
                 "sec-ch-ua-platform": '"macOS"',
-                "sec-fetch-dest": "document",
-                "sec-fetch-mode": "navigate",
-                "sec-fetch-site": "none",
-                "sec-fetch-user": "?1",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin",
                 "sec-gpc": "1",
-                "upgrade-insecure-requests": "1",
                 "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
             },
         )
@@ -52,32 +50,32 @@ class ChubScraper(BaseScraper):
         response.raise_for_status()
         payload = response.json()
 
-        data = payload.get("data", {})
-        nodes = data.get("nodes", []) or []
+        items = payload.get("data", []) or []
 
         characters: list[Character] = []
-        for node in nodes:
-            full_path = node.get("fullPath") or ""
-            page_url = cast(HttpUrl, urljoin(site_url, full_path))
+        for item in items:
+            # Build page URL and image URL; use stable fallbacks based on id and avatar filename
+            char_id = item.get("id") or ""
+            page_url = cast(HttpUrl, f"https://janitorai.com/characters/{char_id}")
 
-            avatar_url = node.get("avatar_url") or node.get("max_res_url")
-            if not avatar_url:
-                print(f"Skipping character without a usable image URL: {page_url}")
+            avatar_filename = item.get("avatar") or ""
+            if not avatar_filename:
+                # Skip if we cannot construct a valid image URL
+                # Consistency with other scrapers: require a usable image
                 continue
+            image_url = cast(
+                HttpUrl, f"https://janitorai.com/avatars/{avatar_filename}"
+            )
 
-            name = node.get("name") or ""
-            description = node.get("description") or ""
-            chat_count = node.get("nChats") or 0
-            message_count = node.get("nMessages") or 0
-            like_count = node.get("n_favorites") or 0
-            token_count = node.get("nTokens") or 0
+            name = item.get("name") or ""
+            description = item.get("description") or ""
+            stats = item.get("stats", {}) or {}
+            chat_count = stats.get("chat") or 0
+            message_count = stats.get("message") or 0
+            token_count = item.get("total_tokens") or 0
 
-            creator_name = ""
-            if full_path and "/" in full_path:
-                parts = full_path.strip("/").split("/")
-                if len(parts) >= 2:
-                    creator_name = parts[0]
-            creator_id = node.get("creatorId")
+            creator_name = item.get("creator_name")
+            creator_id = item.get("creator_id")
             if not creator_name or not creator_id:
                 print(
                     f"Skipping character without creator information: {page_url}. creator_name: {creator_name}, creator_id: {creator_id}"
@@ -89,17 +87,18 @@ class ChubScraper(BaseScraper):
                     name=name,
                     description=description,
                     url=page_url,
-                    image_url=cast(HttpUrl, avatar_url),
+                    image_url=image_url,
                     chat_count=int(chat_count) if isinstance(chat_count, int) else 0,
                     message_count=int(message_count)
                     if isinstance(message_count, int)
                     else 0,
-                    like_count=int(like_count) if isinstance(like_count, int) else 0,
                     token_count=int(token_count) if isinstance(token_count, int) else 0,
                     creator=CreatorInput(
-                        name=creator_name, site_unique_identifier=str(creator_id)
+                        name=creator_name, site_unique_identifier=creator_id
                     ),
                 )
             )
-        next_page: int | None = page + 1 if len(nodes) > 0 else None
+
+        # Paginate while there are items; stop when empty
+        next_page: int | None = page + 1 if len(items) > 0 else None
         return characters, next_page

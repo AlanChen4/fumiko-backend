@@ -1,0 +1,3 @@
+from .agents import CHARACTER_TAGGING_AGENT
+
+__all__ = ["CHARACTER_TAGGING_AGENT"]

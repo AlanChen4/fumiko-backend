@@ -1,13 +1,14 @@
 [project]
-name = "malaina-search-backend"
+name = "fumiko-backend"
 version = "0.1.0"
-description = "One search for AI characters"
+description = ""
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
     "modal>=1.1.4",
     "pydantic>=2.11.9",
+    "pydantic-ai>=1.2.1",
     "supabase>=2.21.1",
 ]
 
