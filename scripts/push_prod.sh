@@ -1,0 +1,1 @@
+ENV=production modal deploy main.py

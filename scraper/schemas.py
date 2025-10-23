@@ -1,6 +1,6 @@
 from pydantic import BaseModel, HttpUrl, UUID4
 from enum import IntEnum
-from typing import Optional
+from typing import Optional, TypedDict
 
 
 class Site(BaseModel):
@@ -47,3 +47,9 @@ class Character(BaseModel):
 class TagType(IntEnum):
     CONTENT = 1
     PERSONALITY = 2
+
+
+class CharacterForTagging(TypedDict):
+    id: str
+    name: str
+    description: str

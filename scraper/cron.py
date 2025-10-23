@@ -12,7 +12,7 @@ from scraper.crud.character import (
 )
 from scraper.crud.site import get_sites
 from scraper.registry import get_scraper
-from scraper.schemas import Character, TagType
+from scraper.schemas import Character, TagType, CharacterForTagging
 
 
 @app.function()
@@ -113,32 +113,45 @@ async def scrape_sites() -> None:
     )
 
 
-@app.function()
-async def create_tags_for_character(
-    character_id: str, character_name: str, character_description: str
-) -> None:
+@app.function(timeout=60 * 10)
+async def create_tags_for_character(characters: list[CharacterForTagging]) -> None:
     """
-    Create tags for a single character using LLM and save to database.
+    Create tags for a batch of characters within a single container invocation.
+
+    Expects each character to have keys: id, name, description.
     """
     from scraper.ai import CHARACTER_TAGGING_AGENT
 
-    print(f"Creating tags for character {character_id}: {character_name}")
-
-    llm_response = await CHARACTER_TAGGING_AGENT.run(
-        f"Character Name: {character_name}\nCharacter Description: {character_description}"
-    )
-
     db = create_db_client()
-    content_tag_ids = upsert_tags(db, llm_response.output.content_tags, TagType.CONTENT)
-    personality_tag_ids = upsert_tags(
-        db, llm_response.output.personality_tags, TagType.PERSONALITY
-    )
-    all_tag_ids = content_tag_ids + personality_tag_ids
-    tag_character(db, character_id, all_tag_ids)
 
-    print(
-        f"Created {len(all_tag_ids)} tags for character {character_id}: content={llm_response.output.content_tags}, personality={llm_response.output.personality_tags}"
-    )
+    for character in characters:
+        character_id = character["id"]
+        character_name = character["name"]
+        character_description = character["description"]
+
+        print(f"Creating tags for character {character_id}: {character_name}")
+
+        try:
+            llm_response = await CHARACTER_TAGGING_AGENT.run(
+                f"Character Name: {character_name}\nCharacter Description: {character_description}"
+            )
+
+            content_tag_ids = upsert_tags(
+                db, llm_response.output.content_tags, TagType.CONTENT
+            )
+            personality_tag_ids = upsert_tags(
+                db, llm_response.output.personality_tags, TagType.PERSONALITY
+            )
+            all_tag_ids = content_tag_ids + personality_tag_ids
+            tag_character(db, character_id, all_tag_ids)
+
+            print(
+                f"Created {len(all_tag_ids)} tags for character {character_id}: content={llm_response.output.content_tags}, personality={llm_response.output.personality_tags}"
+            )
+        except Exception as e:
+            print(
+                f"Failed to create tags for character {character_id} ({character_name}): {e}"
+            )
 
 
 @app.function(
@@ -156,17 +169,18 @@ async def tag_characters() -> None:
     total_characters_queued = 0
     batches_processed = 0
 
-    for batch in get_characters_for_tagging(db, batch_size=500):
+    for batch in get_characters_for_tagging(db, batch_size=100):
         batches_processed += 1
 
-        for character in batch:
-            create_tags_for_character.spawn(
-                character["id"], character["name"], character["description"]
-            )
-            total_characters_queued += 1
+        # Narrow typing for batch to the expected payload
+        typed_batch: list[CharacterForTagging] = [
+            {"id": c["id"], "name": c["name"], "description": c["description"]}
+            for c in batch
+        ]
+        create_tags_for_character.spawn(typed_batch)
+        total_characters_queued += len(batch)
 
         print(f"Batch {batches_processed}: Queued {len(batch)} characters for tagging")
-        break
 
     print(
         {

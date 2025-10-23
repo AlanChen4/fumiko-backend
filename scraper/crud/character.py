@@ -2,6 +2,7 @@ from typing import Any, Generator
 
 from supabase import Client
 
+from scraper.constants import TAG_NORMALIZATION_MAP
 from scraper.schemas import Character, CreatorInput, TagType
 
 
@@ -109,7 +110,7 @@ def upsert_characters(
 
 
 def get_characters_for_tagging(
-    client: Client, batch_size: int = 500
+    client: Client, batch_size: int
 ) -> Generator[list[dict[str, Any]], None, None]:
     """
     Yield characters that have name and description but no tags, in batches.
@@ -166,9 +167,16 @@ def upsert_tags(db: Client, tag_names: list[str], tag_type: TagType) -> list[str
     if not tag_names:
         return []
 
-    tag_data = [
-        {"name": tag_name.lower().strip(), "type": tag_type} for tag_name in tag_names
-    ]
+    tag_data = []
+    for tag_name in tag_names:
+        normalized = tag_name.lower().strip()
+
+        if normalized in TAG_NORMALIZATION_MAP:
+            normalized = TAG_NORMALIZATION_MAP[normalized]
+        else:
+            normalized = normalized.replace("-", " ").replace("_", " ")
+
+        tag_data.append({"name": normalized, "type": tag_type})
 
     response = db.table("tags").upsert(tag_data, on_conflict="name,type").execute()
 
@@ -186,4 +194,6 @@ def tag_character(db: Client, character_id: str, tag_ids: list[str]) -> None:
         {"character_id": character_id, "tag_id": tag_id} for tag_id in tag_ids
     ]
 
-    db.table("character_tags").insert(character_tag_data).execute()
+    db.table("character_tags").upsert(
+        character_tag_data, on_conflict="character_id,tag_id"
+    ).execute()
